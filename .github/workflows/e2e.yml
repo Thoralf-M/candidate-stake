@@ -1,0 +1,86 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      IOTA_BINARY_VERSION: "v1.18.1"
+      EPOCH_DURATION_MS: "10000"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start PostgreSQL
+        run: |
+          docker run -d \
+            --name postgres \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgrespw \
+            -e POSTGRES_DB=iota_indexer_v2 \
+            -e POSTGRES_HOST_AUTH_METHOD=trust \
+            -p 5432:5432 \
+            --health-cmd pg_isready \
+            --health-interval 10s \
+            --health-timeout 5s \
+            --health-retries 5 \
+            postgres
+
+      - name: Download IOTA binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSET_NAME="iota-$IOTA_BINARY_VERSION-linux-x86_64.tgz"
+          download_url="https://github.com/iotaledger/iota/releases/download/$IOTA_BINARY_VERSION/$ASSET_NAME"
+          echo "Downloading binary from $download_url"
+          wget -q "$download_url" -O iota.tgz
+          tar -zxvf iota.tgz ./iota
+          chmod +x ./iota
+          echo "$(pwd)" >> $GITHUB_PATH
+
+      - name: Start local network
+        run: |
+          iota start \
+            --force-regenesis \
+            --with-faucet \
+            --with-indexer \
+            --with-graphql \
+            --pg-port 5432 \
+            --pg-db-name iota_indexer_v2 \
+            --epoch-duration-ms $EPOCH_DURATION_MS \
+            --committee-size 2 &
+
+          iota client switch --env localnet
+
+          for i in $(seq 1 60); do
+            if iota client gas --json 2>/dev/null | jq -e '.' >/dev/null 2>&1; then
+              echo "Network is ready"
+              break
+            fi
+            echo "Waiting for network... ($i)"
+            sleep 2
+          done
+
+      - name: Publish package and discover validators
+        run: |
+          OUTPUT=$(iota client publish --json)
+          PACKAGE_ID=$(echo "$OUTPUT" | jq -r '.objectChanges[] | select(.type == "published") | .packageId')
+          echo "PACKAGE_ID=$PACKAGE_ID" >> $GITHUB_ENV
+          echo "Published package: $PACKAGE_ID"
+
+          STATE=$(curl -s http://localhost:9000 -H 'Content-Type: application/json' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"iotax_getLatestIotaSystemState"}')
+          echo "VALIDATOR1=$(echo "$STATE" | jq -r '.result.activeValidators[0].iotaAddress')" >> $GITHUB_ENV
+          echo "VALIDATOR2=$(echo "$STATE" | jq -r '.result.activeValidators[1].iotaAddress')" >> $GITHUB_ENV
+
+      - name: "Test: deposit and execute"
+        run: bash e2e/test_deposit_and_execute.sh
+
+      - name: "Test: withdraw"
+        run: bash e2e/test_withdraw.sh
+
+      - name: "Test: cancel"
+        run: bash e2e/test_cancel.sh
