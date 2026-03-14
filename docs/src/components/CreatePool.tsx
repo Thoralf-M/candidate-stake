@@ -50,15 +50,17 @@ export function CreatePool({
     );
   };
 
-  if (!account) return null;
-
   const available =
     candidates?.filter((c) => !existingTargets.has(c.iotaAddress)) ?? [];
 
   return (
     <div className="section">
       <h2>Create Pool</h2>
-      {available.length > 0 ? (
+      {!account ? (
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+          Connect a wallet to create a pool.
+        </p>
+      ) : available.length > 0 ? (
         <div className="form-row">
           <select
             value={validator}
