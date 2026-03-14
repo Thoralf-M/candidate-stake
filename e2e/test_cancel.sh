@@ -58,11 +58,11 @@ assert_eq "$(echo "$FIELDS" | jq -r '.deposits | length')" "2" "deposit count is
 # Admin cancels the pool
 switch_to "$ADMIN"
 log "Admin cancelling pool..."
-CANCEL_TX=$(cancel_pool "$POOL_ID")
+cancel_pool "$POOL_ID" >/dev/null
 
 # Verify both stakers got their StakedIota back
-S1_RETURNED=$(count_staked_for "$CANCEL_TX" "$STAKER1")
-S2_RETURNED=$(count_staked_for "$CANCEL_TX" "$STAKER2")
+S1_RETURNED=$(count_owned_staked "$STAKER1")
+S2_RETURNED=$(count_owned_staked "$STAKER2")
 assert_ge "$S1_RETURNED" "1" "staker1 got StakedIota back"
 assert_ge "$S2_RETURNED" "1" "staker2 got StakedIota back"
 

@@ -43,7 +43,7 @@ assert_eq "$(echo "$FIELDS" | jq -r '.deposits | length')" "1" "deposit count is
 
 # Staker withdraws all their deposits
 log "Staker withdrawing..."
-WITHDRAW_TX=$(withdraw_from_pool "$POOL_ID")
+withdraw_from_pool "$POOL_ID" >/dev/null
 
 # Verify pool is now empty
 FIELDS=$(get_object_fields "$POOL_ID")
@@ -51,7 +51,7 @@ assert_eq "$(echo "$FIELDS" | jq -r '.deposits | length')" "0" "deposit count is
 assert_eq "$(echo "$FIELDS" | jq -r '.total_principal')" "0" "total principal is 0 after withdraw"
 
 # Verify StakedIota returned to staker
-RETURNED=$(count_staked_for "$WITHDRAW_TX" "$STAKER")
+RETURNED=$(count_owned_staked "$STAKER")
 assert_ge "$RETURNED" "1" "staker got StakedIota back"
 
 log "=== PASSED ==="

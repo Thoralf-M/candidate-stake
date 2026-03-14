@@ -60,7 +60,7 @@ get_active_address() {
 }
 
 new_address() {
-  iota client new-address ed25519 --json | jq -r '.address'
+  iota client new-address --json | jq -r '.address'
 }
 
 fund_with_faucet() {
@@ -158,4 +158,13 @@ count_staked_for() {
   local tx_json="$1" addr="$2"
   echo "$tx_json" | jq \
     '[.objectChanges[] | select(.objectType // "" | contains("StakedIota")) | select(.owner.AddressOwner == "'"$addr"'")] | length'
+}
+
+# Count StakedIota objects owned by an address (via RPC query).
+# Use this for withdraw/cancel where unwrapped objects don't appear in objectChanges.
+count_owned_staked() {
+  local addr="$1"
+  iota client switch --address "$addr" >/dev/null 2>&1
+  iota client objects --json 2>/dev/null \
+    | jq '[.[] | select(.data.type // "" | contains("StakedIota"))] | length'
 }

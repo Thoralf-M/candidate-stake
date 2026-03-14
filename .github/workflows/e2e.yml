@@ -51,18 +51,21 @@ jobs:
             --pg-port 5432 \
             --pg-db-name iota_indexer_v2 \
             --epoch-duration-ms $EPOCH_DURATION_MS \
-            --committee-size 2 &
-
-          iota client switch --env localnet
+            --committee-size 2 \
+            --faucet-amount 2600000000000000 &
 
           for i in $(seq 1 60); do
-            if iota client gas --json 2>/dev/null | jq -e '.' >/dev/null 2>&1; then
+            if curl -s http://localhost:9123 >/dev/null 2>&1; then
               echo "Network is ready"
               break
             fi
             echo "Waiting for network... ($i)"
             sleep 2
           done
+
+          iota client --yes switch --env localnet
+          iota client faucet
+          sleep 5
 
       - name: Publish package and discover validators
         run: |
