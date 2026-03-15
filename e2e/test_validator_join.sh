@@ -8,26 +8,23 @@ log "=== Test: Validator Join via CandidateStake ==="
 
 ADMIN=$(get_active_address)
 STAKER=$(new_address)
-log "Admin:   $ADMIN"
-log "Staker:  $STAKER"
+CANDIDATE=$(new_address)
+log "Admin:     $ADMIN"
+log "Staker:    $STAKER"
+log "Candidate: $CANDIDATE"
 
-# Fund staker
+# Fund staker and candidate
 fund_with_faucet "$STAKER"
+fund_with_faucet "$CANDIDATE"
 
-# --- Validator becomes a candidate ---
+# --- Candidate validator setup ---
 
-switch_to "$VALIDATOR2"
-log "Validator2 requesting to become a candidate validator..."
-iota validator become-candidate
-
-wait_for_next_epoch
-
-# Verify validator2 is now a candidate (not yet active)
-CANDIDATE_STATUS=$(curl -s "$RPC_URL" -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"iotax_getLatestIotaSystemState"}' \
-  | jq -r --arg v "$VALIDATOR2" \
-    '[.result.pendingActiveValidators[]? | select(.iotaAddress == $v)] | length')
-log "Validator2 candidate status entries: $CANDIDATE_STATUS"
+switch_to "$CANDIDATE"
+log "Setting up candidate validator info..."
+iota validator make-validator-info candidate-validator "CandidateStake test validator" \
+  https://iota.org/logo.png https://www.iota.org 127.0.0.1
+iota validator become-candidate validator.info
+sleep 2
 
 # --- Staking phase ---
 
@@ -52,8 +49,8 @@ wait_for_next_epoch
 # --- Pool phase ---
 
 switch_to "$ADMIN"
-log "Creating CandidateStake pool targeting $VALIDATOR2..."
-POOL_ID=$(create_pool "$VALIDATOR2")
+log "Creating CandidateStake pool targeting $CANDIDATE..."
+POOL_ID=$(create_pool "$CANDIDATE")
 log "Pool: $POOL_ID"
 
 # Admin deposits
@@ -70,32 +67,32 @@ FIELDS=$(get_object_fields "$POOL_ID")
 TOTAL=$(echo "$FIELDS" | jq -r '.total_principal')
 assert_ge "$TOTAL" "2000000000000000" "total principal >= 2M IOTA threshold"
 
-# --- Execute restaking ---
+# --- Execute restaking (must be same epoch as join-validators) ---
 
 switch_to "$ADMIN"
-log "Executing coordinated restaking to $VALIDATOR2..."
+log "Executing coordinated restaking to $CANDIDATE..."
 EXEC_TX=$(execute_pool "$POOL_ID")
 
-# Verify depositors received new StakedIota targeted at validator2
+# Verify depositors received new StakedIota targeted at candidate
 ADMIN_NEW=$(count_staked_for "$EXEC_TX" "$ADMIN")
 STAKER_NEW=$(count_staked_for "$EXEC_TX" "$STAKER")
 assert_eq "$ADMIN_NEW" "1" "admin received new StakedIota"
 assert_eq "$STAKER_NEW" "1" "staker received new StakedIota"
 
-# --- Validator joins the committee (must be same epoch as restaking) ---
+# --- Candidate joins the committee (must be same epoch as restaking) ---
 
-switch_to "$VALIDATOR2"
-log "Validator2 calling join-validators..."
+switch_to "$CANDIDATE"
+log "Candidate calling join-validators..."
 iota validator join-validators
 
-log "Waiting for epoch change so validator2 joins the committee..."
+log "Waiting for epoch change so candidate joins the committee..."
 wait_for_next_epoch
 
-# Verify validator2 is now in the active validator set
+# Verify candidate is now in the active validator set
 ACTIVE=$(curl -s "$RPC_URL" -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"iotax_getLatestIotaSystemState"}' \
-  | jq -r --arg v "$VALIDATOR2" \
+  | jq -r --arg v "$CANDIDATE" \
     '[.result.activeValidators[] | select(.iotaAddress == $v)] | length')
-assert_eq "$ACTIVE" "1" "validator2 is now an active validator"
+assert_eq "$ACTIVE" "1" "candidate is now an active validator"
 
 log "=== PASSED ==="

@@ -87,3 +87,6 @@ jobs:
 
       - name: "Test: cancel"
         run: bash e2e/test_cancel.sh
+
+      - name: "Test: validator join"
+        run: bash e2e/test_validator_join.sh
