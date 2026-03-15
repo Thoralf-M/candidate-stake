@@ -104,16 +104,18 @@ public fun withdraw(
     assert!(found, ENotDepositor);
 }
 
-/// Execute the coordinated restaking. Anyone can call this once threshold is met.
-/// Unstakes all deposited StakedIota objects, restakes the proceeds to the
-/// target validator, sends new StakedIota objects back to each depositor,
+/// Execute the coordinated restaking. Only the creator can call this once threshold is met,
+/// so they can sync it with the target validator calling `0x3::iota_system::request_add_validator`
+/// in the same epoch. Unstakes all deposited StakedIota objects, restakes the proceeds to
+/// the target validator, sends new StakedIota objects back to each depositor,
 /// and destroys the shared object.
 public fun execute(
     self: CandidateStake,
     system_state: &mut IotaSystemState,
     ctx: &mut TxContext,
 ) {
-    let CandidateStake { id, creator: _, target_validator, mut deposits, total_principal, max_deposits: _ } = self;
+    let CandidateStake { id, creator, target_validator, mut deposits, total_principal, max_deposits: _ } = self;
+    assert!(creator == ctx.sender(), ENotCreator);
     assert!(total_principal >= THRESHOLD, EThresholdNotReached);
     object::delete(id);
 

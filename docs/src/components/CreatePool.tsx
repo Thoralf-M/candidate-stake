@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   useCurrentAccount,
+  useIotaClient,
   useSignAndExecuteTransaction,
 } from "@iota/dapp-kit";
 import { Transaction } from "@iota/iota-sdk/transactions";
@@ -10,6 +11,7 @@ type Account = ReturnType<typeof useCurrentAccount>;
 
 interface Props {
   packageId: string;
+  network: string;
   account: Account;
   existingTargets: Set<string>;
   onCreated: () => void;
@@ -19,30 +21,46 @@ function shortAddr(addr: string): string {
   return addr.slice(0, 8) + "..." + addr.slice(-6);
 }
 
+function explorerTxUrl(digest: string, network: string): string {
+  return `https://explorer.iota.org/txblock/${digest}?network=${network}`;
+}
+
 export function CreatePool({
   packageId,
+  network,
   account,
   existingTargets,
   onCreated,
 }: Props) {
   const [validator, setValidator] = useState("");
   const [error, setError] = useState("");
+  const [lastTx, setLastTx] = useState("");
+  const [waiting, setWaiting] = useState(false);
   const { data: candidates } = useCandidateValidators();
+  const client = useIotaClient();
   const { mutate: signAndExecute, isPending } =
     useSignAndExecuteTransaction();
 
   const create = () => {
     setError("");
+    setLastTx("");
     const tx = new Transaction();
     tx.moveCall({
       target: `${packageId}::candidate_stake::create`,
       arguments: [tx.pure.address(validator)],
     });
     signAndExecute(
-      { transaction: tx },
+      { transaction: tx, chain: `iota:${network}` },
       {
-        onSuccess: () => {
+        onSuccess: async ({ digest }) => {
+          setLastTx(digest);
           setValidator("");
+          setWaiting(true);
+          try {
+            await client.waitForTransaction({ digest });
+          } finally {
+            setWaiting(false);
+          }
           onCreated();
         },
         onError: (e) => setError(e.message),
@@ -87,6 +105,19 @@ export function CreatePool({
         </p>
       ) : (
         <p className="loading">Loading candidates...</p>
+      )}
+      {lastTx && (
+        <p className="tx-link">
+          {waiting ? "Waiting for tx finalization... " : "Tx: "}
+          <a
+            href={explorerTxUrl(lastTx, network)}
+            target="_blank"
+            rel="noreferrer"
+            className="explorer-link"
+          >
+            {shortAddr(lastTx)}
+          </a>
+        </p>
       )}
       {error && <p className="error">{error}</p>}
     </div>

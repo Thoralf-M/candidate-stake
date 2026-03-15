@@ -342,7 +342,7 @@ fun test_execute_above_threshold() {
     deposit_stake(STAKER_1, &mut scenario);
     deposit_stake(STAKER_2, &mut scenario);
 
-    // Execute by a third party
+    // Execute by the creator
     scenario.next_tx(ANYONE);
     {
         let pool = scenario.take_shared<CandidateStake>();
@@ -499,6 +499,27 @@ fun test_execute_after_all_withdrawn() {
 
     // Try execute on empty pool
     scenario.next_tx(ANYONE);
+    let pool = scenario.take_shared<CandidateStake>();
+    let mut system_state = scenario.take_shared<IotaSystemState>();
+    candidate_stake::execute(pool, &mut system_state, scenario.ctx());
+    test_scenario::return_shared(system_state);
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = ::candidate_stake::candidate_stake::ENotCreator)]
+fun test_execute_not_creator() {
+    set_up_system();
+    let mut scenario = test_scenario::begin(STAKER_1);
+
+    stake_with(STAKER_1, VALIDATOR_1, 2_000_000, &mut scenario);
+    advance_epoch(&mut scenario);
+
+    create_candidate_stake(ANYONE, &mut scenario);
+    deposit_stake(STAKER_1, &mut scenario);
+
+    // Non-creator tries to execute — should abort
+    scenario.next_tx(STAKER_1);
     let pool = scenario.take_shared<CandidateStake>();
     let mut system_state = scenario.take_shared<IotaSystemState>();
     candidate_stake::execute(pool, &mut system_state, scenario.ctx());

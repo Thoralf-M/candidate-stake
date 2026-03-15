@@ -12,7 +12,11 @@ const queryClient = new QueryClient();
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <IotaClientProvider networks={networkConfig} defaultNetwork="devnet">
+      <IotaClientProvider
+        networks={networkConfig}
+        defaultNetwork={(localStorage.getItem("network") as keyof typeof networkConfig) || "devnet"}
+        onNetworkChange={(network) => localStorage.setItem("network", network)}
+      >
         <WalletProvider autoConnect>
           <App />
         </WalletProvider>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   useCurrentAccount,
+  useIotaClient,
   useSignAndExecuteTransaction,
 } from "@iota/dapp-kit";
 import { Transaction } from "@iota/iota-sdk/transactions";
@@ -20,6 +21,10 @@ function formatIota(nanos: string | number): string {
 
 function shortAddr(addr: string): string {
   return addr.slice(0, 8) + "..." + addr.slice(-6);
+}
+
+function explorerTxUrl(digest: string, network: string): string {
+  return `https://explorer.iota.org/txblock/${digest}?network=${network}`;
 }
 
 function explorerObjectUrl(id: string, network: string): string {
@@ -110,16 +115,32 @@ export function PoolCard({
 
   const [selectedStake, setSelectedStake] = useState("");
   const [error, setError] = useState("");
+  const [lastTx, setLastTx] = useState("");
+  const [waiting, setWaiting] = useState(false);
+  const client = useIotaClient();
   const { mutate: signAndExecute, isPending } =
     useSignAndExecuteTransaction();
 
   const exec = (buildTx: (tx: Transaction) => void) => {
     setError("");
+    setLastTx("");
     const tx = new Transaction();
     buildTx(tx);
     signAndExecute(
-      { transaction: tx },
-      { onSuccess: onChanged, onError: (e) => setError(e.message) },
+      { transaction: tx, chain: `iota:${network}` },
+      {
+        onSuccess: async ({ digest }) => {
+          setLastTx(digest);
+          setWaiting(true);
+          try {
+            await client.waitForTransaction({ digest });
+          } finally {
+            setWaiting(false);
+          }
+          onChanged();
+        },
+        onError: (e) => setError(e.message),
+      },
     );
   };
 
@@ -294,11 +315,13 @@ export function PoolCard({
             <div className="action-row">
               <button
                 onClick={execute}
-                disabled={!isReady || isPending}
+                disabled={!isCreator || !isReady || isPending}
                 title={
-                  isReady
-                    ? "Unstake all deposits and restake to the target validator. Each depositor gets their new StakedIota back."
-                    : `${formatIota(thresholdNanos - totalPrincipal)} IOTA still needed to reach threshold`
+                  !isCreator
+                    ? "Only the pool creator can execute"
+                    : isReady
+                      ? "Unstake all deposits and restake to the target validator. Each depositor gets their new StakedIota back."
+                      : `${formatIota(thresholdNanos - totalPrincipal)} IOTA still needed to reach threshold`
                 }
               >
                 {isReady
@@ -319,21 +342,36 @@ export function PoolCard({
                 Cancel Pool
               </button>
 
-              {fields.deposits.length === 0 && (
-                <button
-                  className="secondary"
-                  onClick={destroyEmpty}
-                  disabled={isPending}
-                  title="Clean up this empty pool object"
-                >
-                  Destroy Empty
-                </button>
-              )}
+              <button
+                className="secondary"
+                onClick={destroyEmpty}
+                disabled={fields.deposits.length > 0 || isPending}
+                title={
+                  fields.deposits.length > 0
+                    ? "Pool still has deposits — withdraw or cancel first"
+                    : "Clean up this empty pool object"
+                }
+              >
+                Destroy Empty
+              </button>
             </div>
           </div>
         </>
       )}
 
+      {lastTx && (
+        <p className="tx-link">
+          {waiting ? "Waiting for tx finalization... " : "Tx: "}
+          <a
+            href={explorerTxUrl(lastTx, network)}
+            target="_blank"
+            rel="noreferrer"
+            className="explorer-link"
+          >
+            {shortAddr(lastTx)}
+          </a>
+        </p>
+      )}
       {error && <p className="error">{error}</p>}
     </div>
   );
