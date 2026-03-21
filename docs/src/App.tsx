@@ -11,7 +11,7 @@ import { CreatePool } from "./components/CreatePool";
 import contractSource from "../../sources/candidate_stake.move?raw";
 
 const GITHUB_REPO = "https://github.com/Thoralf-M/candidate-stake";
-const GITHUB_CONTRACT = `${GITHUB_REPO}/blob/main/sources/candidate_stake.move`;
+const GITHUB_CONTRACT = `${GITHUB_REPO}/blob/develop/sources/candidate_stake.move`;
 
 function explorerPackageUrl(packageId: string, network: string): string {
   return `https://explorer.iota.org/object/${packageId}?network=${network}`;
