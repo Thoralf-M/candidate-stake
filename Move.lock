@@ -53,3 +53,15 @@ chain-id = "daf90477"
 original-published-id = "0x5b8e73954c18a0d743e967de27e588ddcae6b7d060098e7a2e55c5d269cf76c1"
 latest-published-id = "0x5b8e73954c18a0d743e967de27e588ddcae6b7d060098e7a2e55c5d269cf76c1"
 published-version = "1"
+
+[env.testnet]
+chain-id = "2304aa97"
+original-published-id = "0xfc65701aeba619e4c1e33c58738874fd76330e8a50cf6a7d34626d198407c653"
+latest-published-id = "0xfc65701aeba619e4c1e33c58738874fd76330e8a50cf6a7d34626d198407c653"
+published-version = "1"
+
+[env.mainnet]
+chain-id = "6364aad5"
+original-published-id = "0x82db91a26597e11d40afcbee6e71d2d7816de6513fe3a95d9e56bea0aca59f04"
+latest-published-id = "0x82db91a26597e11d40afcbee6e71d2d7816de6513fe3a95d9e56bea0aca59f04"
+published-version = "1"
