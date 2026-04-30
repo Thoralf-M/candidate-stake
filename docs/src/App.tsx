@@ -109,10 +109,13 @@ export function App() {
           — all deposits are unstaked and restaked to the target validator,
           with each depositor receiving their new <code>StakedIota</code> back
           (including any accrued rewards). Since deposits stay staked to their
-          original validator until execution, you only miss out on a single
-          epoch of staking rewards during the restaking transition — assuming
-          the target validator successfully joins the committee (the committee
-          size is limited, so a slot must be available).
+          original validator until execution, no rewards are missed before that
+          point. After restaking, the target validator becomes active only in
+          the second following epoch and can only start earning rewards from
+          then on, so you miss at least two epochs of staking rewards during
+          the transition — assuming the target validator successfully joins
+          the committee (the committee size is limited, so a slot must be
+          available).
           Only the pool creator can trigger execution, so they can sync it
           with the target validator
           calling <code>0x3::iota_system::request_add_validator</code> in the same epoch.
@@ -199,8 +202,10 @@ export function App() {
           <dt>How much staking reward do I miss?</dt>
           <dd>
             Your deposits remain staked to their original validator until execution, so
-            you keep earning rewards the whole time. During the restaking transition you
-            miss one epoch of rewards. Only the pool creator can trigger execution,
+            you keep earning rewards the whole time. After restaking, the target validator
+            becomes active only in the second following epoch and can only start earning
+            rewards from then on, so you miss at least two epochs of rewards during the
+            transition, but nothing before. Only the pool creator can trigger execution,
             so they can sync it with the target validator
             calling <code>0x3::iota_system::request_add_validator</code> in the same epoch.
             If this is not called in the same epoch as the restaking, an additional epoch
